@@ -1,54 +1,119 @@
-<header>
+wine quality prediction projeect
 
-<!--
-  <<< Author notes: Course header >>>
-  Include a 1280×640 image, course title in sentence case, and a concise description in emphasis.
-  In your repository settings: enable template repository, add your 1280×640 social image, auto delete head branches.
-  Add your open source license, GitHub uses MIT license.
--->
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sb
 
-# GitHub Pages
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from sklearn import metrics
+from sklearn.svm import SVC
+from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
 
-_Create a site or blog from your GitHub repositories with GitHub Pages._
+import warnings
+warnings.filterwarnings('ignore')
 
-</header>
 
-<!--
-  <<< Author notes: Step 1 >>>
-  Choose 3-5 steps for your course.
-  The first step is always the hardest, so pick something easy!
-  Link to docs.github.com for further explanations.
-  Encourage users to open new tabs for steps!
--->
+df = pd.read_csv('winequality.csv')
+print(df.head())
 
-## Step 1: Enable GitHub Pages
 
-_Welcome to GitHub Pages and Jekyll :tada:!_
+df.info()
 
-The first step is to enable GitHub Pages on this [repository](https://docs.github.com/en/get-started/quickstart/github-glossary#repository). When you enable GitHub Pages on a repository, GitHub takes the content that's on the main branch and publishes a website based on its contents.
 
-### :keyboard: Activity: Enable GitHub Pages
+df.describe().T
 
-1. Open a new browser tab, and work on the steps in your second tab while you read the instructions in this tab.
-1. Under your repository name, click **Settings**.
-1. Click **Pages** in the **Code and automation** section.
-1. Ensure "Deploy from a branch" is selected from the **Source** drop-down menu, and then select `main` from the **Branch** drop-down menu.
-1. Click the **Save** button.
-1. Wait about _one minute_ then refresh this page (the one you're following instructions from). [GitHub Actions](https://docs.github.com/en/actions) will automatically update to the next step.
-   > Turning on GitHub Pages creates a deployment of your repository. GitHub Actions may take up to a minute to respond while waiting for the deployment. Future steps will be about 20 seconds; this step is slower.
-   > **Note**: In the **Pages** of **Settings**, the **Visit site** button will appear at the top. Click the button to see your GitHub Pages site.
 
-<footer>
+df.isnull().sum()
 
-<!--
-  <<< Author notes: Footer >>>
-  Add a link to get support, GitHub status page, code of conduct, license link.
--->
 
----
+for col in df.columns:
+  if df[col].isnull().sum() > 0:
+    df[col] = df[col].fillna(df[col].mean())
 
-Get help: [Post in our discussion board](https://github.com/orgs/skills/discussions/categories/github-pages) &bull; [Review the GitHub status page](https://www.githubstatus.com/)
+df.isnull().sum().sum()
 
-&copy; 2023 GitHub &bull; [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/code_of_conduct.md) &bull; [MIT License](https://gh.io/mit)
 
-</footer>
+df.hist(bins=20, figsize=(10, 10))
+plt.show()
+
+
+plt.bar(df['quality'], df['alcohol'])
+plt.xlabel('quality')
+plt.ylabel('alcohol')
+plt.show()
+
+
+# Convert 'object' columns to numerical if they represent numbers
+for col in df.columns:
+    if df[col].dtype == 'object':
+        try:
+            df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, replace non-convertibles with NaN
+        except:
+            pass  # Skip columns that cannot be converted
+
+plt.figure(figsize=(12, 12))
+sb.heatmap(df.corr() > 0.7, annot=True, cbar=False)
+plt.show()
+
+# This code is modified by Susobhan Akhuli
+
+
+df = df.drop('total sulfur dioxide', axis=1)
+
+
+df['best quality'] = [1 if x > 5 else 0 for x in df.quality]
+
+
+df.replace({'white': 1, 'red': 0}, inplace=True)
+
+
+features = features.fillna(features.mean())
+features = df.drop(['quality', 'best quality'], axis=1)
+target = df['best quality']
+
+xtrain, xtest, ytrain, ytest = train_test_split(
+	features, target, test_size=0.2, random_state=40)
+
+# Impute missing values after splitting
+from sklearn.impute import SimpleImputer
+imputer = SimpleImputer(strategy='mean')  # Or another strategy like 'median'
+xtrain = imputer.fit_transform(xtrain)
+xtest = imputer.transform(xtest)
+
+xtrain.shape, xtest.shape
+
+# This code is modified by Susobhan Akhuli
+
+
+norm = MinMaxScaler()
+xtrain = norm.fit_transform(xtrain)
+xtest = norm.transform(xtest)
+
+
+models = [LogisticRegression(), XGBClassifier(), SVC(kernel='rbf')]
+
+for i in range(3):
+    models[i].fit(xtrain, ytrain)
+
+    print(f'{models[i]} : ')
+    print('Training Accuracy : ', metrics.roc_auc_score(ytrain, models[i].predict(xtrain)))
+    print('Validation Accuracy : ', metrics.roc_auc_score(
+        ytest, models[i].predict(xtest)))
+    print()
+
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# Assuming 'models[1]' is your trained classifier
+cm = confusion_matrix(ytest, models[1].predict(xtest))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=models[1].classes_) # Assuming your model has a 'classes_' attribute
+disp.plot()
+plt.show()
+
+# This code is modified by Susobhan Akhuli
+
+
